@@ -11,7 +11,9 @@ import { CONTRACTS } from "../lib/contracts";
 type PriceData = readonly [bigint, bigint] | undefined;
 
 function formatPrice(value: bigint | undefined) {
-  if (value === undefined) return "Loading...";
+  if (value === undefined) {
+    return "Unavailable";
+  }
 
   return `$${Number(formatEther(value)).toLocaleString("en-US", {
     minimumFractionDigits: 2,
@@ -20,21 +22,29 @@ function formatPrice(value: bigint | undefined) {
 }
 
 function formatTimestamp(value: bigint | undefined) {
-  if (value === undefined) return "Loading...";
+  if (value === undefined) {
+    return "Unavailable";
+  }
 
   const timestamp = Number(value);
 
-  if (!timestamp) return "Unknown";
+  if (!timestamp) {
+    return "Unknown";
+  }
 
   return new Date(timestamp * 1000).toLocaleString();
 }
 
 function ageSeconds(value: bigint | undefined) {
-  if (value === undefined) return undefined;
+  if (value === undefined) {
+    return undefined;
+  }
 
   const timestamp = Number(value);
 
-  if (!timestamp) return undefined;
+  if (!timestamp) {
+    return undefined;
+  }
 
   return Math.max(
     0,
@@ -42,11 +52,55 @@ function ageSeconds(value: bigint | undefined) {
   );
 }
 
+function normalizePriceData(
+  value: unknown
+): PriceData {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  if (value.length < 2) {
+    return undefined;
+  }
+
+  const price = value[0];
+  const timestamp = value[1];
+
+  if (
+    typeof price !== "bigint" ||
+    typeof timestamp !== "bigint"
+  ) {
+    return undefined;
+  }
+
+  return [price, timestamp];
+}
+
 function StatusBadge({
   fresh,
+  loading,
+  error,
 }: {
   fresh: boolean | undefined;
+  loading?: boolean;
+  error?: boolean;
 }) {
+  if (loading) {
+    return (
+      <span className="rounded-full bg-slate-700 px-3 py-1 text-xs font-semibold text-gray-300">
+        LOADING
+      </span>
+    );
+  }
+
+  if (error) {
+    return (
+      <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-400">
+        READ ERROR
+      </span>
+    );
+  }
+
   if (fresh === undefined) {
     return (
       <span className="rounded-full bg-slate-700 px-3 py-1 text-xs font-semibold text-gray-300">
@@ -77,11 +131,15 @@ function PriceCard({
   price,
   updatedAt,
   fresh,
+  loading,
+  error,
 }: {
   symbol: string;
   price: bigint | undefined;
   updatedAt: bigint | undefined;
   fresh: boolean | undefined;
+  loading: boolean;
+  error: boolean;
 }) {
   const age = ageSeconds(updatedAt);
 
@@ -100,12 +158,20 @@ function PriceCard({
           </h3>
         </div>
 
-        <StatusBadge fresh={fresh} />
+        <StatusBadge
+          fresh={fresh}
+          loading={loading}
+          error={error}
+        />
 
       </div>
 
       <p className="mt-6 text-3xl font-bold text-cyan-400">
-        {formatPrice(price)}
+        {loading
+          ? "Loading..."
+          : error
+            ? "Unavailable"
+            : formatPrice(price)}
       </p>
 
       <div className="mt-5 border-t border-slate-800 pt-4">
@@ -126,11 +192,15 @@ function PriceCard({
           className={`mt-1 text-sm font-semibold ${
             fresh
               ? "text-green-400"
-              : "text-red-400"
+              : fresh === false
+                ? "text-red-400"
+                : "text-gray-400"
           }`}
         >
           {age === undefined
-            ? "Checking..."
+            ? loading
+              ? "Loading..."
+              : "Unavailable"
             : `${age.toLocaleString()} seconds`}
         </p>
 
@@ -147,13 +217,15 @@ export default function OraclePanel() {
     chainId === sepolia.id;
 
   /*
-   * ---------------------------------------------------------
+   * =========================================================
    * ETH PRICE
-   * ---------------------------------------------------------
+   * =========================================================
    */
 
   const {
     data: ethPriceRaw,
+    error: ethPriceError,
+    isLoading: ethPriceLoading,
     refetch: refetchEthPrice,
   } = useReadContract({
     address: CONTRACTS.PriceOracle.address,
@@ -161,17 +233,20 @@ export default function OraclePanel() {
     functionName: "getETHPrice",
     query: {
       enabled: isSepolia,
+      refetchInterval: 30_000,
     },
   });
 
   /*
-   * ---------------------------------------------------------
+   * =========================================================
    * ETH PRICE DATA
-   * ---------------------------------------------------------
+   * =========================================================
    */
 
   const {
     data: ethPriceDataRaw,
+    error: ethPriceDataError,
+    isLoading: ethPriceDataLoading,
     refetch: refetchEthData,
   } = useReadContract({
     address: CONTRACTS.PriceOracle.address,
@@ -179,17 +254,20 @@ export default function OraclePanel() {
     functionName: "getETHPriceData",
     query: {
       enabled: isSepolia,
+      refetchInterval: 30_000,
     },
   });
 
   /*
-   * ---------------------------------------------------------
+   * =========================================================
    * BTC PRICE
-   * ---------------------------------------------------------
+   * =========================================================
    */
 
   const {
     data: btcPriceRaw,
+    error: btcPriceError,
+    isLoading: btcPriceLoading,
     refetch: refetchBtcPrice,
   } = useReadContract({
     address: CONTRACTS.PriceOracle.address,
@@ -197,17 +275,20 @@ export default function OraclePanel() {
     functionName: "getBTCPrice",
     query: {
       enabled: isSepolia,
+      refetchInterval: 30_000,
     },
   });
 
   /*
-   * ---------------------------------------------------------
+   * =========================================================
    * BTC PRICE DATA
-   * ---------------------------------------------------------
+   * =========================================================
    */
 
   const {
     data: btcPriceDataRaw,
+    error: btcPriceDataError,
+    isLoading: btcPriceDataLoading,
     refetch: refetchBtcData,
   } = useReadContract({
     address: CONTRACTS.PriceOracle.address,
@@ -215,17 +296,20 @@ export default function OraclePanel() {
     functionName: "getBTCPriceData",
     query: {
       enabled: isSepolia,
+      refetchInterval: 30_000,
     },
   });
 
   /*
-   * ---------------------------------------------------------
+   * =========================================================
    * AETR PRICE
-   * ---------------------------------------------------------
+   * =========================================================
    */
 
   const {
     data: aetrPriceRaw,
+    error: aetrPriceError,
+    isLoading: aetrPriceLoading,
     refetch: refetchAetrPrice,
   } = useReadContract({
     address: CONTRACTS.PriceOracle.address,
@@ -233,17 +317,20 @@ export default function OraclePanel() {
     functionName: "getAETRPrice",
     query: {
       enabled: isSepolia,
+      refetchInterval: 30_000,
     },
   });
 
   /*
-   * ---------------------------------------------------------
+   * =========================================================
    * AETR PRICE DATA
-   * ---------------------------------------------------------
+   * =========================================================
    */
 
   const {
     data: aetrPriceDataRaw,
+    error: aetrPriceDataError,
+    isLoading: aetrPriceDataLoading,
     refetch: refetchAetrData,
   } = useReadContract({
     address: CONTRACTS.PriceOracle.address,
@@ -251,17 +338,20 @@ export default function OraclePanel() {
     functionName: "getAETRPriceData",
     query: {
       enabled: isSepolia,
+      refetchInterval: 30_000,
     },
   });
 
   /*
-   * ---------------------------------------------------------
+   * =========================================================
    * MAX PRICE AGE
-   * ---------------------------------------------------------
+   * =========================================================
    */
 
   const {
     data: maxPriceAgeRaw,
+    error: maxPriceAgeError,
+    isLoading: maxPriceAgeLoading,
     refetch: refetchMaxAge,
   } = useReadContract({
     address: CONTRACTS.PriceOracle.address,
@@ -269,17 +359,14 @@ export default function OraclePanel() {
     functionName: "maxPriceAge",
     query: {
       enabled: isSepolia,
+      refetchInterval: 30_000,
     },
   });
 
   /*
-   * ---------------------------------------------------------
-   * NORMALIZE PRICE DATA
-   *
-   * The V2 contract returns price data as:
-   *
-   * [price, updatedAt]
-   * ---------------------------------------------------------
+   * =========================================================
+   * NORMALIZE VALUES
+   * =========================================================
    */
 
   const ethPrice =
@@ -297,23 +384,15 @@ export default function OraclePanel() {
       ? aetrPriceRaw
       : undefined;
 
-const ethPriceData =
-  Array.isArray(ethPriceDataRaw) &&
-  ethPriceDataRaw.length >= 2
-    ? (ethPriceDataRaw as unknown as PriceData)
-    : undefined;
+  const ethPriceData =
+    normalizePriceData(ethPriceDataRaw);
 
-const btcPriceData =
-  Array.isArray(btcPriceDataRaw) &&
-  btcPriceDataRaw.length >= 2
-    ? (btcPriceDataRaw as unknown as PriceData)
-    : undefined;
+  const btcPriceData =
+    normalizePriceData(btcPriceDataRaw);
 
-const aetrPriceData =
-  Array.isArray(aetrPriceDataRaw) &&
-  aetrPriceDataRaw.length >= 2
-    ? (aetrPriceDataRaw as unknown as PriceData)
-    : undefined;
+  const aetrPriceData =
+    normalizePriceData(aetrPriceDataRaw);
+
   const ethUpdatedAt =
     ethPriceData?.[1];
 
@@ -329,9 +408,9 @@ const aetrPriceData =
       : undefined;
 
   /*
-   * ---------------------------------------------------------
-   * FRESHNESS
-   * ---------------------------------------------------------
+   * =========================================================
+   * AGES
+   * =========================================================
    */
 
   const ethAge =
@@ -347,6 +426,12 @@ const aetrPriceData =
     maxPriceAge !== undefined
       ? Number(maxPriceAge)
       : undefined;
+
+  /*
+   * =========================================================
+   * FRESHNESS
+   * =========================================================
+   */
 
   const ethFresh =
     ethAge !== undefined &&
@@ -366,15 +451,53 @@ const aetrPriceData =
       ? aetrAge <= maxAge
       : undefined;
 
+  const ethError =
+    !!ethPriceError ||
+    !!ethPriceDataError;
+
+  const btcError =
+    !!btcPriceError ||
+    !!btcPriceDataError;
+
+  const aetrError =
+    !!aetrPriceError ||
+    !!aetrPriceDataError;
+
+  const ethLoading =
+    ethPriceLoading ||
+    ethPriceDataLoading;
+
+  const btcLoading =
+    btcPriceLoading ||
+    btcPriceDataLoading;
+
+  const aetrLoading =
+    aetrPriceLoading ||
+    aetrPriceDataLoading;
+
+  const anyOracleLoading =
+    ethLoading ||
+    btcLoading ||
+    aetrLoading ||
+    maxPriceAgeLoading;
+
+  const anyOracleError =
+    ethError ||
+    btcError ||
+    aetrError ||
+    !!maxPriceAgeError;
+
   const allFresh =
-    ethFresh !== false &&
-    btcFresh !== false &&
-    aetrFresh !== false;
+    !anyOracleLoading &&
+    !anyOracleError &&
+    ethFresh === true &&
+    btcFresh === true &&
+    aetrFresh === true;
 
   /*
-   * ---------------------------------------------------------
+   * =========================================================
    * REFRESH
-   * ---------------------------------------------------------
+   * =========================================================
    */
 
   async function refreshOracle() {
@@ -390,9 +513,9 @@ const aetrPriceData =
   }
 
   /*
-   * ---------------------------------------------------------
+   * =========================================================
    * WRONG NETWORK
-   * ---------------------------------------------------------
+   * =========================================================
    */
 
   if (!isSepolia) {
@@ -408,8 +531,8 @@ const aetrPriceData =
         </h2>
 
         <p className="mt-3 text-sm leading-6 text-gray-300">
-          Switch MetaMask to Ethereum Sepolia to view the
-          live AETHERIS oracle data.
+          Switch MetaMask to Ethereum Sepolia to view
+          the live AETHERIS oracle data.
         </p>
 
       </section>
@@ -417,9 +540,9 @@ const aetrPriceData =
   }
 
   /*
-   * ---------------------------------------------------------
+   * =========================================================
    * MAIN PANEL
-   * ---------------------------------------------------------
+   * =========================================================
    */
 
   return (
@@ -440,8 +563,8 @@ const aetrPriceData =
           </h2>
 
           <p className="mt-3 max-w-3xl text-sm leading-6 text-gray-400">
-            Live price and freshness information from the deployed
-            AETHERIS V2 PriceOracle contract.
+            Live ETH, BTC and AETR price information from
+            the deployed AETHERIS V2 PriceOracle contract.
           </p>
 
         </div>
@@ -450,7 +573,9 @@ const aetrPriceData =
           className={`flex items-center gap-2 self-start rounded-full px-4 py-2 ${
             allFresh
               ? "border border-green-500/30 bg-green-500/10"
-              : "border border-red-500/30 bg-red-500/10"
+              : anyOracleError
+                ? "border border-red-500/30 bg-red-500/10"
+                : "border border-yellow-500/30 bg-yellow-500/10"
           }`}
         >
 
@@ -458,7 +583,9 @@ const aetrPriceData =
             className={`h-2 w-2 rounded-full ${
               allFresh
                 ? "bg-green-400"
-                : "bg-red-400"
+                : anyOracleError
+                  ? "bg-red-400"
+                  : "bg-yellow-400"
             }`}
           />
 
@@ -466,17 +593,22 @@ const aetrPriceData =
             className={`text-xs font-semibold ${
               allFresh
                 ? "text-green-400"
-                : "text-red-400"
+                : anyOracleError
+                  ? "text-red-400"
+                  : "text-yellow-400"
             }`}
           >
             {allFresh
               ? "ORACLE HEALTHY"
-              : "STALE PRICE DETECTED"}
+              : anyOracleError
+                ? "ORACLE READ ERROR"
+                : "CHECKING ORACLE"}
           </span>
 
         </div>
 
       </div>
+
 
       {/* Price Cards */}
 
@@ -487,6 +619,8 @@ const aetrPriceData =
           price={ethPrice}
           updatedAt={ethUpdatedAt}
           fresh={ethFresh}
+          loading={ethLoading}
+          error={ethError}
         />
 
         <PriceCard
@@ -494,6 +628,8 @@ const aetrPriceData =
           price={btcPrice}
           updatedAt={btcUpdatedAt}
           fresh={btcFresh}
+          loading={btcLoading}
+          error={btcError}
         />
 
         <PriceCard
@@ -501,9 +637,12 @@ const aetrPriceData =
           price={aetrPrice}
           updatedAt={aetrUpdatedAt}
           fresh={aetrFresh}
+          loading={aetrLoading}
+          error={aetrError}
         />
 
       </div>
+
 
       {/* Oracle Configuration */}
 
@@ -516,14 +655,21 @@ const aetrPriceData =
         <div className="mt-5 grid gap-5 md:grid-cols-3">
 
           <div>
+
             <p className="text-xs uppercase tracking-wider text-gray-500">
               Maximum Price Age
             </p>
 
             <p className="mt-2 text-xl font-bold text-cyan-400">
-              {maxAge === undefined
+
+              {maxPriceAgeLoading
                 ? "Loading..."
-                : `${maxAge.toLocaleString()} seconds`}
+                : maxPriceAgeError
+                  ? "Unavailable"
+                  : maxAge === undefined
+                    ? "Unavailable"
+                    : `${maxAge.toLocaleString()} seconds`}
+
             </p>
 
             {maxAge !== undefined && (
@@ -534,29 +680,44 @@ const aetrPriceData =
 
           </div>
 
+
           <div>
+
             <p className="text-xs uppercase tracking-wider text-gray-500">
               ETH Status
             </p>
 
             <div className="mt-2">
-              <StatusBadge fresh={ethFresh} />
+              <StatusBadge
+                fresh={ethFresh}
+                loading={ethLoading}
+                error={ethError}
+              />
             </div>
+
           </div>
 
+
           <div>
+
             <p className="text-xs uppercase tracking-wider text-gray-500">
               BTC Status
             </p>
 
             <div className="mt-2">
-              <StatusBadge fresh={btcFresh} />
+              <StatusBadge
+                fresh={btcFresh}
+                loading={btcLoading}
+                error={btcError}
+              />
             </div>
+
           </div>
 
         </div>
 
       </div>
+
 
       {/* AETR Status */}
 
@@ -565,41 +726,91 @@ const aetrPriceData =
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 
           <div>
+
             <p className="text-xs uppercase tracking-wider text-gray-500">
               AETR Oracle Status
             </p>
 
             <p className="mt-1 text-sm text-gray-400">
-              AETR market price used by the protocol's oracle layer.
+              AETR market price used by the protocol's
+              oracle layer.
             </p>
+
           </div>
 
-          <StatusBadge fresh={aetrFresh} />
+          <StatusBadge
+            fresh={aetrFresh}
+            loading={aetrLoading}
+            error={aetrError}
+          />
 
         </div>
 
       </div>
 
-      {/* Stale Warning */}
 
-      {!allFresh && (
+      {/* Error Details */}
+
+      {anyOracleError && (
         <div className="mt-6 rounded-2xl border border-red-500/30 bg-red-950/20 p-5">
 
           <div className="flex gap-3">
 
             <div className="mt-1 h-3 w-3 shrink-0 rounded-full bg-red-400" />
 
-            <div>
+            <div className="min-w-0">
 
               <h3 className="font-bold text-red-400">
-                Oracle Freshness Warning
+                Oracle Contract Read Error
               </h3>
 
               <p className="mt-2 text-sm leading-6 text-gray-300">
-                One or more oracle prices appear older than the
-                configured maximum price age. Protocol users
-                should treat stale oracle data as a risk condition.
+                One or more PriceOracle contract reads failed.
+                Check that the deployed PriceOracle address,
+                ABI and Sepolia network are correct.
               </p>
+
+              {ethPriceError && (
+                <p className="mt-3 break-words text-xs text-red-300">
+                  ETH: {ethPriceError.message}
+                </p>
+              )}
+
+              {ethPriceDataError && (
+                <p className="mt-2 break-words text-xs text-red-300">
+                  ETH data: {ethPriceDataError.message}
+                </p>
+              )}
+
+              {btcPriceError && (
+                <p className="mt-2 break-words text-xs text-red-300">
+                  BTC: {btcPriceError.message}
+                </p>
+              )}
+
+              {btcPriceDataError && (
+                <p className="mt-2 break-words text-xs text-red-300">
+                  BTC data: {btcPriceDataError.message}
+                </p>
+              )}
+
+              {aetrPriceError && (
+                <p className="mt-2 break-words text-xs text-red-300">
+                  AETR: {aetrPriceError.message}
+                </p>
+              )}
+
+              {aetrPriceDataError && (
+                <p className="mt-2 break-words text-xs text-red-300">
+                  AETR data: {aetrPriceDataError.message}
+                </p>
+              )}
+
+              {maxPriceAgeError && (
+                <p className="mt-2 break-words text-xs text-red-300">
+                  Max age: {maxPriceAgeError.message}
+                </p>
+              )}
 
             </div>
 
@@ -608,15 +819,52 @@ const aetrPriceData =
         </div>
       )}
 
+
+      {/* Stale Warning */}
+
+      {!anyOracleError &&
+        !anyOracleLoading &&
+        !allFresh && (
+          <div className="mt-6 rounded-2xl border border-red-500/30 bg-red-950/20 p-5">
+
+            <div className="flex gap-3">
+
+              <div className="mt-1 h-3 w-3 shrink-0 rounded-full bg-red-400" />
+
+              <div>
+
+                <h3 className="font-bold text-red-400">
+                  Oracle Freshness Warning
+                </h3>
+
+                <p className="mt-2 text-sm leading-6 text-gray-300">
+                  One or more oracle prices are older than
+                  the configured maximum price age.
+                  Protocol users should treat stale oracle
+                  data as a risk condition.
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+
       {/* Refresh */}
 
       <button
         type="button"
         onClick={refreshOracle}
-        className="mt-6 w-full rounded-xl border border-cyan-500/30 px-4 py-3 text-sm font-semibold text-cyan-400 transition hover:bg-cyan-500/10"
+        disabled={anyOracleLoading}
+        className="mt-6 w-full rounded-xl border border-cyan-500/30 px-4 py-3 text-sm font-semibold text-cyan-400 transition hover:bg-cyan-500/10 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        Refresh Oracle Data
+        {anyOracleLoading
+          ? "Reading Oracle..."
+          : "Refresh Oracle Data"}
       </button>
+
 
       {/* Contract */}
 
