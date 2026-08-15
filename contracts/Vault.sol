@@ -26,10 +26,19 @@ contract Vault is
     // CONSTANTS
     // --------------------------------------------------
 
-    uint256 public constant BPS = 10_000;
+uint256 public constant BPS = 10_000;
 
-    // Maximum borrowing = 66% of collateral value
-    uint256 public constant MAX_LTV_BPS = 6_600;
+// Maximum borrowing = 66% of collateral value
+uint256 public constant MAX_LTV_BPS = 6_600;
+
+// Liquidation starts at 75% LTV
+uint256 public constant LIQUIDATION_THRESHOLD_BPS = 7_500;
+
+// Liquidator receives a 5% collateral bonus
+uint256 public constant LIQUIDATION_BONUS_BPS = 500;
+
+// Maximum 50% of outstanding debt per liquidation
+uint256 public constant MAX_LIQUIDATION_CLOSE_FACTOR_BPS = 5_000;
 
     // --------------------------------------------------
     // USER POSITIONS
@@ -70,6 +79,13 @@ contract Vault is
     event AUSDRepaid(
         address indexed user,
         uint256 amount
+    );
+
+    event Liquidated(
+        address indexed user,
+        address indexed liquidator,
+        uint256 debtRepaid,
+        uint256 collateralSeized
     );
 
     // --------------------------------------------------
@@ -275,6 +291,143 @@ contract Vault is
             amount
         );
     }
+// --------------------------------------------------
+// LIQUIDATION
+// --------------------------------------------------
+
+function liquidate(
+    address user,
+    uint256 debtToRepay
+)
+    external
+    whenNotPaused
+    nonReentrant
+{
+    require(
+        user != address(0),
+        "Invalid user"
+    );
+
+    require(
+        debtToRepay > 0,
+        "Zero liquidation"
+    );
+
+    uint256 userDebt =
+        ausdDebt[user];
+
+    require(
+        userDebt > 0,
+        "No debt"
+    );
+
+    uint256 collateralUSD =
+        collateralValue(user);
+
+    require(
+        collateralUSD > 0,
+        "No collateral"
+    );
+
+    // Position must be at or above
+    // the liquidation threshold.
+    require(
+        userDebt * BPS >=
+            collateralUSD *
+            LIQUIDATION_THRESHOLD_BPS,
+        "Position healthy"
+    );
+
+    // Maximum 50% of debt per liquidation.
+    uint256 maxRepay =
+        (userDebt *
+            MAX_LIQUIDATION_CLOSE_FACTOR_BPS)
+        / BPS;
+
+    require(
+        maxRepay > 0,
+        "Liquidation amount too small"
+    );
+
+    require(
+        debtToRepay <= maxRepay,
+        "Close factor exceeded"
+    );
+
+    uint256 ethPrice =
+        priceOracle.getETHPrice();
+
+    require(
+        ethPrice > 0,
+        "Invalid ETH price"
+    );
+
+    // --------------------------------------------------
+    // COLLATERAL SEIZED
+    //
+    // debtToRepay is denominated in USD/AUSD
+    // with 18 decimals.
+    //
+    // ethPrice has 8 decimals.
+    // --------------------------------------------------
+
+    uint256 collateralSeized =
+        (
+            debtToRepay *
+            (BPS + LIQUIDATION_BONUS_BPS) *
+            1e8
+        )
+        / ethPrice
+        / BPS;
+
+    require(
+        collateralSeized > 0,
+        "Collateral too small"
+    );
+
+    require(
+        collateralSeized <=
+            ethCollateral[user],
+        "Insufficient collateral"
+    );
+
+    // --------------------------------------------------
+    // EFFECTS
+    // --------------------------------------------------
+
+    ausdDebt[user] =
+        userDebt - debtToRepay;
+
+    totalAUSDDebt -=
+        debtToRepay;
+
+    ethCollateral[user] -=
+        collateralSeized;
+
+    totalETHCollateral -=
+        collateralSeized;
+
+    // --------------------------------------------------
+    // INTERACTIONS
+    // --------------------------------------------------
+
+    // Vault must possess BURNER_ROLE.
+    ausd.burn(
+        msg.sender,
+        debtToRepay
+    );
+
+    payable(msg.sender).sendValue(
+        collateralSeized
+    );
+
+    emit Liquidated(
+        user,
+        msg.sender,
+        debtToRepay,
+        collateralSeized
+    );
+}
 
     // --------------------------------------------------
     // WITHDRAW ETH
