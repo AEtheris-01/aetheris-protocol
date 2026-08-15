@@ -4,6 +4,7 @@ import VaultPanel from "../components/VaultPanel";
 import AETRTokenomics from "../components/AETRTokenomics";
 import StakingPanel from "../components/StakingPanel";
 import RiskPanel from "../components/RiskPanel";
+import OraclePanel from "../components/OraclePanel";
 
 export default function Dashboard() {
   return (
@@ -74,11 +75,15 @@ export default function Dashboard() {
 
         {/* AETR Tokenomics */}
 
+        <VaultPanel />
+
         <AETRTokenomics />
 
         <StakingPanel />
-        
+
         <RiskPanel />
+
+        <OraclePanel />
 
         {/* Protocol Modules */}
 
