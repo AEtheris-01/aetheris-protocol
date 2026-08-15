@@ -53,6 +53,26 @@ describe("Vault V2 Security", function () {
     );
 
     // -----------------------------
+    // AETR
+    // -----------------------------
+
+    const AETR =
+      await ethers.getContractFactory(
+        "AETRToken"
+      );
+
+    const aetr =
+      await AETR.deploy(
+        admin.address,
+        admin.address,
+        admin.address,
+        admin.address,
+        admin.address
+      );
+
+    await aetr.waitForDeployment();
+
+    // -----------------------------
     // VAULT
     // -----------------------------
 
@@ -69,6 +89,37 @@ describe("Vault V2 Security", function () {
       );
 
     await vault.waitForDeployment();
+
+    // -----------------------------
+    // PROTOCOL FEE ROUTER
+    // -----------------------------
+
+    const Router =
+      await ethers.getContractFactory(
+        "ProtocolFeeRouter"
+      );
+
+    const router =
+      await Router.deploy(
+        admin.address,
+        await ausd.getAddress(),
+        await aetr.getAddress(),
+        admin.address
+      );
+
+    await router.waitForDeployment();
+
+    // -----------------------------
+    // CONNECT VAULT → FEE ROUTER
+    // -----------------------------
+
+    await router.setFeeCollector(
+      await vault.getAddress()
+    );
+
+    await vault.setFeeRouter(
+      await router.getAddress()
+    );
 
     // -----------------------------
     // AUSD ROLES
@@ -90,17 +141,22 @@ describe("Vault V2 Security", function () {
       await vault.getAddress()
     );
 
+    // -----------------------------
+    // RETURN SYSTEM
+    // -----------------------------
+
     return {
       admin,
       user,
       attacker,
       user2,
       ausd,
+      aetr,
       oracle,
       vault,
+      router,
     };
   }
-
   // ------------------------------------------------
   // DEPLOYMENT
   // ------------------------------------------------
@@ -272,6 +328,161 @@ describe("Vault V2 Security", function () {
           .connect(user)
           .borrowAUSD(
             ethers.parseEther("1980.01")
+          )
+      ).to.be.revert(ethers);
+    }
+  );
+
+  // ------------------------------------------------
+  // PROTOCOL FEE
+  // ------------------------------------------------
+
+  it(
+    "should mint the 1% protocol fee without increasing user debt",
+    async function () {
+      const {
+        user,
+        vault,
+        ausd,
+        router,
+      } = await deploySystem();
+
+      await vault
+        .connect(user)
+        .depositETH({
+          value: ethers.parseEther("1"),
+        });
+
+      const borrowAmount =
+        ethers.parseEther("1000");
+
+      const expectedFee =
+        ethers.parseEther("10");
+
+      await vault
+        .connect(user)
+        .borrowAUSD(
+          borrowAmount
+        );
+
+      // User receives exactly the requested amount.
+      expect(
+        await ausd.balanceOf(
+          user.address
+        )
+      ).to.equal(
+        borrowAmount
+      );
+
+      // User debt is exactly the requested amount.
+      // The 1% fee is NOT added to user debt.
+      expect(
+        await vault.ausdDebt(
+          user.address
+        )
+      ).to.equal(
+        borrowAmount
+      );
+
+      // Router receives the protocol fee.
+      expect(
+        await ausd.balanceOf(
+          await router.getAddress()
+        )
+      ).to.equal(
+        expectedFee
+      );
+
+      // Router records total fee.
+      expect(
+        await router.totalFeesReceived()
+      ).to.equal(
+        expectedFee
+      );
+    }
+  );
+
+  it(
+    "should split the 1% fee into 0.5% AETR and 0.5% BTC allocations",
+    async function () {
+      const {
+        user,
+        vault,
+        router,
+      } = await deploySystem();
+
+      await vault
+        .connect(user)
+        .depositETH({
+          value: ethers.parseEther("1"),
+        });
+
+      const borrowAmount =
+        ethers.parseEther("1000");
+
+      await vault
+        .connect(user)
+        .borrowAUSD(
+          borrowAmount
+        );
+
+      expect(
+        await router.totalAETRAllocation()
+      ).to.equal(
+        ethers.parseEther("5")
+      );
+
+      expect(
+        await router.totalBTCAllocation()
+      ).to.equal(
+        ethers.parseEther("5")
+      );
+    }
+  );
+
+  it(
+    "should reject borrowing when the fee router is not configured",
+    async function () {
+      const {
+        user,
+        ausd,
+        oracle,
+        admin,
+      } = await deploySystem();
+
+      const Vault =
+        await ethers.getContractFactory(
+          "Vault"
+        );
+
+      const unconfiguredVault =
+        await Vault.deploy(
+          admin.address,
+          await ausd.getAddress(),
+          await oracle.getAddress()
+        );
+
+      await unconfiguredVault.waitForDeployment();
+
+      const MINTER_ROLE =
+        await ausd.MINTER_ROLE();
+
+      await ausd.grantRole(
+        MINTER_ROLE,
+        await unconfiguredVault.getAddress()
+      );
+
+      await unconfiguredVault
+        .connect(user)
+        .depositETH({
+          value: ethers.parseEther("1"),
+        });
+
+      await expect(
+        unconfiguredVault
+          .connect(user)
+          .borrowAUSD(
+            ethers.parseEther("1000")
           )
       ).to.be.revert(ethers);
     }

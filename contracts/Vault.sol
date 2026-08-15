@@ -15,6 +15,24 @@ interface IPriceOracleV2 {
     function getETHPrice() external view returns (uint256);
 }
 
+interface IProtocolFeeRouterV2 {
+    function calculateFee(
+        uint256 ausdAmount
+    )
+        external
+        pure
+        returns (
+            uint256 totalFee,
+            uint256 aetrAllocation,
+            uint256 btcAllocation
+        );
+
+    function receiveFee(
+        address payer,
+        uint256 ausdAmount
+    ) external;
+}
+
 contract Vault is
     Ownable2Step,
     Pausable,
@@ -26,19 +44,22 @@ contract Vault is
     // CONSTANTS
     // --------------------------------------------------
 
-uint256 public constant BPS = 10_000;
+    uint256 public constant BPS = 10_000;
 
-// Maximum borrowing = 66% of collateral value
-uint256 public constant MAX_LTV_BPS = 6_600;
+    // Maximum borrowing = 66% of collateral value
+    uint256 public constant MAX_LTV_BPS = 6_600;
 
-// Liquidation starts at 75% LTV
-uint256 public constant LIQUIDATION_THRESHOLD_BPS = 7_500;
+    // Liquidation starts at 75% LTV
+    uint256 public constant LIQUIDATION_THRESHOLD_BPS = 7_500;
 
-// Liquidator receives a 5% collateral bonus
-uint256 public constant LIQUIDATION_BONUS_BPS = 500;
+    // Liquidator receives a 5% collateral bonus
+    uint256 public constant LIQUIDATION_BONUS_BPS = 500;
 
-// Maximum 50% of outstanding debt per liquidation
-uint256 public constant MAX_LIQUIDATION_CLOSE_FACTOR_BPS = 5_000;
+    // Maximum 50% of outstanding debt per liquidation
+    uint256 public constant MAX_LIQUIDATION_CLOSE_FACTOR_BPS = 5_000;
+
+    // Protocol fee = 1% of requested AUSD borrow
+    uint256 public constant BORROW_FEE_BPS = 100;
 
     // --------------------------------------------------
     // USER POSITIONS
@@ -56,6 +77,8 @@ uint256 public constant MAX_LIQUIDATION_CLOSE_FACTOR_BPS = 5_000;
 
     IAUSDStablecoinV2 public immutable ausd;
     IPriceOracleV2 public immutable priceOracle;
+
+    IProtocolFeeRouterV2 public feeRouter;
 
     // --------------------------------------------------
     // EVENTS
@@ -86,6 +109,11 @@ uint256 public constant MAX_LIQUIDATION_CLOSE_FACTOR_BPS = 5_000;
         address indexed liquidator,
         uint256 debtRepaid,
         uint256 collateralSeized
+    );
+
+    event FeeRouterUpdated(
+        address indexed oldRouter,
+        address indexed newRouter
     );
 
     // --------------------------------------------------
@@ -119,6 +147,35 @@ uint256 public constant MAX_LIQUIDATION_CLOSE_FACTOR_BPS = 5_000;
 
         priceOracle =
             IPriceOracleV2(oracleAddress);
+    }
+
+    // --------------------------------------------------
+    // FEE ROUTER
+    // --------------------------------------------------
+
+    function setFeeRouter(
+        address newFeeRouter
+    )
+        external
+        onlyOwner
+    {
+        require(
+            newFeeRouter != address(0),
+            "Invalid fee router"
+        );
+
+        address oldRouter =
+            address(feeRouter);
+
+        feeRouter =
+            IProtocolFeeRouterV2(
+                newFeeRouter
+            );
+
+        emit FeeRouterUpdated(
+            oldRouter,
+            newFeeRouter
+        );
     }
 
     // --------------------------------------------------
@@ -233,12 +290,75 @@ uint256 public constant MAX_LIQUIDATION_CLOSE_FACTOR_BPS = 5_000;
             "Borrow exceeds collateral"
         );
 
-        // Effects before external interaction
-        ausdDebt[msg.sender] += amount;
-        totalAUSDDebt += amount;
+        require(
+            address(feeRouter) != address(0),
+            "Fee router not configured"
+        );
 
-        // Vault must have AUSD MINTER_ROLE.
+        // --------------------------------------------------
+        // CALCULATE PROTOCOL FEE
+        // --------------------------------------------------
+
+        (
+            uint256 totalFee,
+            ,
+        ) =
+            feeRouter.calculateFee(
+                amount
+            );
+
+        require(
+            totalFee > 0,
+            "Fee too small"
+        );
+
+        // Ensure the router calculation remains
+        // consistent with the Vault's protocol rule.
+        require(
+            totalFee ==
+                (amount * BORROW_FEE_BPS) / BPS,
+            "Invalid fee"
+        );
+
+        // --------------------------------------------------
+        // EFFECTS
+        // --------------------------------------------------
+
+        // User debt is ONLY the amount requested.
+        // Protocol fee is NOT added to user debt.
+
+        ausdDebt[msg.sender] +=
+            amount;
+
+        totalAUSDDebt +=
+            amount;
+
+        // --------------------------------------------------
+        // MINT USER AUSD
+        // --------------------------------------------------
+
         ausd.mint(
+            msg.sender,
+            amount
+        );
+
+        // --------------------------------------------------
+        // MINT PROTOCOL FEE
+        // --------------------------------------------------
+
+        // Fee is minted directly to the FeeRouter.
+        // It never enters the user's balance.
+
+        ausd.mint(
+            address(feeRouter),
+            totalFee
+        );
+
+        // --------------------------------------------------
+        // REGISTER PROTOCOL FEE
+        // --------------------------------------------------
+
+        feeRouter.receiveFee(
             msg.sender,
             amount
         );
@@ -273,14 +393,17 @@ uint256 public constant MAX_LIQUIDATION_CLOSE_FACTOR_BPS = 5_000;
             "Repay exceeds debt"
         );
 
-        // Effects first. A revert from burn rolls
-        // the entire transaction back atomically.
+        // Effects first.
+        // A revert from burn rolls the entire
+        // transaction back atomically.
+
         ausdDebt[msg.sender] =
             debt - amount;
 
-        totalAUSDDebt -= amount;
+        totalAUSDDebt -=
+            amount;
 
-        // Vault must have AUSD BURNER_ROLE.
+        // Vault must possess AUSD BURNER_ROLE.
         ausd.burn(
             msg.sender,
             amount
@@ -291,143 +414,148 @@ uint256 public constant MAX_LIQUIDATION_CLOSE_FACTOR_BPS = 5_000;
             amount
         );
     }
-// --------------------------------------------------
-// LIQUIDATION
-// --------------------------------------------------
-
-function liquidate(
-    address user,
-    uint256 debtToRepay
-)
-    external
-    whenNotPaused
-    nonReentrant
-{
-    require(
-        user != address(0),
-        "Invalid user"
-    );
-
-    require(
-        debtToRepay > 0,
-        "Zero liquidation"
-    );
-
-    uint256 userDebt =
-        ausdDebt[user];
-
-    require(
-        userDebt > 0,
-        "No debt"
-    );
-
-    uint256 collateralUSD =
-        collateralValue(user);
-
-    require(
-        collateralUSD > 0,
-        "No collateral"
-    );
-
-    // Position must be at or above
-    // the liquidation threshold.
-    require(
-        userDebt * BPS >=
-            collateralUSD *
-            LIQUIDATION_THRESHOLD_BPS,
-        "Position healthy"
-    );
-
-    // Maximum 50% of debt per liquidation.
-    uint256 maxRepay =
-        (userDebt *
-            MAX_LIQUIDATION_CLOSE_FACTOR_BPS)
-        / BPS;
-
-    require(
-        maxRepay > 0,
-        "Liquidation amount too small"
-    );
-
-    require(
-        debtToRepay <= maxRepay,
-        "Close factor exceeded"
-    );
-
-    uint256 ethPrice =
-        priceOracle.getETHPrice();
-
-    require(
-        ethPrice > 0,
-        "Invalid ETH price"
-    );
 
     // --------------------------------------------------
-    // COLLATERAL SEIZED
-    //
-    // debtToRepay is denominated in USD/AUSD
-    // with 18 decimals.
-    //
-    // ethPrice has 8 decimals.
+    // LIQUIDATION
     // --------------------------------------------------
 
-    uint256 collateralSeized =
-        (
-            debtToRepay *
-            (BPS + LIQUIDATION_BONUS_BPS) *
-            1e8
-        )
-        / ethPrice
-        / BPS;
+    function liquidate(
+        address user,
+        uint256 debtToRepay
+    )
+        external
+        whenNotPaused
+        nonReentrant
+    {
+        require(
+            user != address(0),
+            "Invalid user"
+        );
 
-    require(
-        collateralSeized > 0,
-        "Collateral too small"
-    );
+        require(
+            debtToRepay > 0,
+            "Zero liquidation"
+        );
 
-    require(
-        collateralSeized <=
-            ethCollateral[user],
-        "Insufficient collateral"
-    );
+        uint256 userDebt =
+            ausdDebt[user];
 
-    // --------------------------------------------------
-    // EFFECTS
-    // --------------------------------------------------
+        require(
+            userDebt > 0,
+            "No debt"
+        );
 
-    ausdDebt[user] =
-        userDebt - debtToRepay;
+        uint256 collateralUSD =
+            collateralValue(user);
 
-    totalAUSDDebt -=
-        debtToRepay;
+        require(
+            collateralUSD > 0,
+            "No collateral"
+        );
 
-    ethCollateral[user] -=
-        collateralSeized;
+        // Position must be at or above
+        // the liquidation threshold.
 
-    totalETHCollateral -=
-        collateralSeized;
+        require(
+            userDebt * BPS >=
+                collateralUSD *
+                LIQUIDATION_THRESHOLD_BPS,
+            "Position healthy"
+        );
 
-    // --------------------------------------------------
-    // INTERACTIONS
-    // --------------------------------------------------
+        // Maximum 50% of debt per liquidation.
 
-    // Vault must possess BURNER_ROLE.
-    ausd.burn(
-        msg.sender,
-        debtToRepay
-    );
+        uint256 maxRepay =
+            (userDebt *
+                MAX_LIQUIDATION_CLOSE_FACTOR_BPS)
+            / BPS;
 
-    payable(msg.sender).sendValue(
-        collateralSeized
-    );
+        require(
+            maxRepay > 0,
+            "Liquidation amount too small"
+        );
 
-    emit Liquidated(
-        user,
-        msg.sender,
-        debtToRepay,
-        collateralSeized
-    );
-}
+        require(
+            debtToRepay <= maxRepay,
+            "Close factor exceeded"
+        );
+
+        uint256 ethPrice =
+            priceOracle.getETHPrice();
+
+        require(
+            ethPrice > 0,
+            "Invalid ETH price"
+        );
+
+        // --------------------------------------------------
+        // COLLATERAL SEIZED
+        //
+        // debtToRepay is denominated in USD/AUSD
+        // with 18 decimals.
+        //
+        // ethPrice has 8 decimals.
+        // --------------------------------------------------
+
+        uint256 collateralSeized =
+            (
+                debtToRepay *
+                (BPS + LIQUIDATION_BONUS_BPS) *
+                1e8
+            )
+            / ethPrice
+            / BPS;
+
+        require(
+            collateralSeized > 0,
+            "Collateral too small"
+        );
+
+        require(
+            collateralSeized <=
+                ethCollateral[user],
+            "Insufficient collateral"
+        );
+
+        // --------------------------------------------------
+        // EFFECTS
+        // --------------------------------------------------
+
+        ausdDebt[user] =
+            userDebt - debtToRepay;
+
+        totalAUSDDebt -=
+            debtToRepay;
+
+        ethCollateral[user] -=
+            collateralSeized;
+
+        totalETHCollateral -=
+            collateralSeized;
+
+        // --------------------------------------------------
+        // INTERACTIONS
+        // --------------------------------------------------
+
+        // Liquidator must possess the AUSD being repaid.
+        // Vault must possess BURNER_ROLE.
+
+        ausd.burn(
+            msg.sender,
+            debtToRepay
+        );
+
+        payable(msg.sender).sendValue(
+            collateralSeized
+        );
+
+        emit Liquidated(
+            user,
+            msg.sender,
+            debtToRepay,
+            collateralSeized
+        );
+    }
 
     // --------------------------------------------------
     // WITHDRAW ETH
@@ -480,10 +608,12 @@ function liquidate(
         }
 
         // Effects before interaction
+
         ethCollateral[msg.sender] =
             remainingCollateral;
 
-        totalETHCollateral -= amount;
+        totalETHCollateral -=
+            amount;
 
         payable(msg.sender).sendValue(
             amount

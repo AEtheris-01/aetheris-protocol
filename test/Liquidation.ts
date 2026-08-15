@@ -51,6 +51,26 @@ describe("Vault Liquidation V2 Security", function () {
     );
 
     // -----------------------------
+    // AETR
+    // -----------------------------
+
+    const AETR =
+      await ethers.getContractFactory(
+        "AETRToken"
+      );
+
+    const aetr =
+      await AETR.deploy(
+        admin.address,
+        admin.address,
+        admin.address,
+        admin.address,
+        admin.address
+      );
+
+    await aetr.waitForDeployment();
+
+    // -----------------------------
     // VAULT
     // -----------------------------
 
@@ -67,6 +87,35 @@ describe("Vault Liquidation V2 Security", function () {
       );
 
     await vault.waitForDeployment();
+
+    // -----------------------------
+    // PROTOCOL FEE ROUTER
+    // -----------------------------
+
+    const Router =
+      await ethers.getContractFactory(
+        "ProtocolFeeRouter"
+      );
+
+    const router =
+      await Router.deploy(
+        admin.address,
+        await ausd.getAddress(),
+        await aetr.getAddress(),
+        admin.address
+      );
+
+    await router.waitForDeployment();
+
+    // Vault is the authorized fee collector.
+    await router.setFeeCollector(
+      await vault.getAddress()
+    );
+
+    // Connect Vault to FeeRouter.
+    await vault.setFeeRouter(
+      await router.getAddress()
+    );
 
     // -----------------------------
     // AUSD ROLES
@@ -94,8 +143,10 @@ describe("Vault Liquidation V2 Security", function () {
       liquidator,
       attacker,
       ausd,
+      aetr,
       oracle,
       vault,
+      router,
     };
   }
 
@@ -124,17 +175,16 @@ describe("Vault Liquidation V2 Security", function () {
 
       await vault
         .connect(user)
-        .borrowAUSD(debt);
+        .borrowAUSD(
+          debt
+        );
 
-      // Give liquidator AUSD so the
-      // burn itself is not the reason
-      // for the revert.
       const MINTER_ROLE =
         await ausd.MINTER_ROLE();
 
       await ausd.grantRole(
         MINTER_ROLE,
-        await liquidator.address
+        liquidator.address
       );
 
       await ausd
@@ -181,7 +231,9 @@ describe("Vault Liquidation V2 Security", function () {
 
       await vault
         .connect(user)
-        .borrowAUSD(debt);
+        .borrowAUSD(
+          debt
+        );
 
       // ETH falls from $3,000 to $2,000.
       // $1,500 debt / $2,000 collateral = 75%.
@@ -241,7 +293,9 @@ describe("Vault Liquidation V2 Security", function () {
 
       await vault
         .connect(user)
-        .borrowAUSD(debt);
+        .borrowAUSD(
+          debt
+        );
 
       await oracle.setETHPrice(
         ethers.parseUnits("2000", 8)
@@ -300,7 +354,9 @@ describe("Vault Liquidation V2 Security", function () {
 
       await vault
         .connect(user)
-        .borrowAUSD(debt);
+        .borrowAUSD(
+          debt
+        );
 
       await oracle.setETHPrice(
         ethers.parseUnits("2000", 8)
@@ -494,7 +550,9 @@ describe("Vault Liquidation V2 Security", function () {
           user.address
         );
 
-      expect(remaining).to.equal(
+      expect(
+        remaining
+      ).to.equal(
         ethers.parseEther("0.60625")
       );
     }
@@ -595,6 +653,7 @@ describe("Vault Liquidation V2 Security", function () {
 
       // Use the same max-age configuration
       // already used by the oracle tests.
+
       const maxAge =
         await oracle.maxPriceAge();
 
