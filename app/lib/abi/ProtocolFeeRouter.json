@@ -13,7 +13,12 @@
       },
       {
         "internalType": "address",
-        "name": "oracleAddress",
+        "name": "aetrAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "treasuryAddress",
         "type": "address"
       }
     ],
@@ -28,27 +33,6 @@
   {
     "inputs": [],
     "name": "ExpectedPause",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "FailedCall",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "balance",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "needed",
-        "type": "uint256"
-      }
-    ],
-    "name": "InsufficientBalance",
     "type": "error"
   },
   {
@@ -79,22 +63,33 @@
     "type": "error"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      }
+    ],
+    "name": "SafeERC20FailedOperation",
+    "type": "error"
+  },
+  {
     "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "aetrAmount",
+        "type": "uint256"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "amount",
+        "name": "btcAmount",
         "type": "uint256"
       }
     ],
-    "name": "AUSDBorrowed",
+    "name": "FeeAllocated",
     "type": "event"
   },
   {
@@ -103,17 +98,17 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "user",
+        "name": "oldCollector",
         "type": "address"
       },
       {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
+        "indexed": true,
+        "internalType": "address",
+        "name": "newCollector",
+        "type": "address"
       }
     ],
-    "name": "AUSDRepaid",
+    "name": "FeeCollectorUpdated",
     "type": "event"
   },
   {
@@ -122,86 +117,17 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "user",
+        "name": "payer",
         "type": "address"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "amount",
+        "name": "ausdAmount",
         "type": "uint256"
       }
     ],
-    "name": "ETHDeposited",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "ETHWithdrawn",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "oldRouter",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "newRouter",
-        "type": "address"
-      }
-    ],
-    "name": "FeeRouterUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "liquidator",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "debtRepaid",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "collateralSeized",
-        "type": "uint256"
-      }
-    ],
-    "name": "Liquidated",
+    "name": "FeeReceived",
     "type": "event"
   },
   {
@@ -259,6 +185,25 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "address",
+        "name": "oldTreasury",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newTreasury",
+        "type": "address"
+      }
+    ],
+    "name": "TreasuryUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": false,
         "internalType": "address",
         "name": "account",
@@ -270,7 +215,7 @@
   },
   {
     "inputs": [],
-    "name": "BORROW_FEE_BPS",
+    "name": "AETR_FEE_BPS",
     "outputs": [
       {
         "internalType": "uint256",
@@ -296,7 +241,7 @@
   },
   {
     "inputs": [],
-    "name": "LIQUIDATION_BONUS_BPS",
+    "name": "BTC_FEE_BPS",
     "outputs": [
       {
         "internalType": "uint256",
@@ -309,33 +254,7 @@
   },
   {
     "inputs": [],
-    "name": "LIQUIDATION_THRESHOLD_BPS",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "MAX_LIQUIDATION_CLOSE_FACTOR_BPS",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "MAX_LTV_BPS",
+    "name": "TOTAL_FEE_BPS",
     "outputs": [
       {
         "internalType": "uint256",
@@ -355,10 +274,10 @@
   },
   {
     "inputs": [],
-    "name": "ausd",
+    "name": "aetr",
     "outputs": [
       {
-        "internalType": "contract IAUSDStablecoinV2",
+        "internalType": "contract IERC20",
         "name": "",
         "type": "address"
       }
@@ -367,19 +286,13 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "name": "ausdDebt",
+    "inputs": [],
+    "name": "ausd",
     "outputs": [
       {
-        "internalType": "uint256",
+        "internalType": "contract IERC20",
         "name": "",
-        "type": "uint256"
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -393,7 +306,7 @@
         "type": "uint256"
       }
     ],
-    "name": "borrowAUSD",
+    "name": "burnAETRAllocation",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -401,131 +314,40 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      }
-    ],
-    "name": "collateralValue",
-    "outputs": [
-      {
         "internalType": "uint256",
-        "name": "",
+        "name": "ausdAmount",
         "type": "uint256"
       }
     ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "depositETH",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "name": "ethCollateral",
+    "name": "calculateFee",
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "totalFee",
         "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "feeRouter",
-    "outputs": [
-      {
-        "internalType": "contract IProtocolFeeRouterV2",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      }
-    ],
-    "name": "isHealthy",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
       },
       {
         "internalType": "uint256",
-        "name": "debtToRepay",
+        "name": "aetrAllocation",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "btcAllocation",
         "type": "uint256"
       }
     ],
-    "name": "liquidate",
-    "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "pure",
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      }
-    ],
-    "name": "maxBorrow",
+    "inputs": [],
+    "name": "feeCollector",
     "outputs": [
       {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "address",
-        "name": "user",
-        "type": "address"
-      }
-    ],
-    "name": "maximumDebt",
-    "outputs": [
-      {
-        "internalType": "uint256",
         "name": "",
-        "type": "uint256"
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -578,16 +400,21 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "priceOracle",
-    "outputs": [
+    "inputs": [
       {
-        "internalType": "contract IPriceOracleV2",
-        "name": "",
+        "internalType": "address",
+        "name": "payer",
         "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "ausdAmount",
+        "type": "uint256"
       }
     ],
-    "stateMutability": "view",
+    "name": "receiveFee",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -600,12 +427,12 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
+        "internalType": "address",
+        "name": "newCollector",
+        "type": "address"
       }
     ],
-    "name": "repayAUSD",
+    "name": "setFeeCollector",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -614,18 +441,18 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "newFeeRouter",
+        "name": "newTreasury",
         "type": "address"
       }
     ],
-    "name": "setFeeRouter",
+    "name": "setTreasury",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
     "inputs": [],
-    "name": "totalAUSDDebt",
+    "name": "totalAETRAllocation",
     "outputs": [
       {
         "internalType": "uint256",
@@ -638,7 +465,7 @@
   },
   {
     "inputs": [],
-    "name": "totalETHCollateral",
+    "name": "totalBTCAllocation",
     "outputs": [
       {
         "internalType": "uint256",
@@ -647,6 +474,32 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalFeesReceived",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "transferBTCAllocation",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -664,20 +517,20 @@
   },
   {
     "inputs": [],
-    "name": "unpause",
-    "outputs": [],
-    "stateMutability": "nonpayable",
+    "name": "treasury",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "withdrawETH",
+    "inputs": [],
+    "name": "unpause",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

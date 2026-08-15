@@ -1,9 +1,17 @@
 import AETRTokenABI from "./abi/AETRToken.json";
 import AUSDStablecoinABI from "./abi/AUSDStablecoin.json";
 import PriceOracleABI from "./abi/PriceOracle.json";
+import ProtocolFeeRouterABI from "./abi/ProtocolFeeRouter.json";
 import TreasuryABI from "./abi/Treasury.json";
 import VaultABI from "./abi/Vault.json";
 import StakingABI from "./abi/Staking.json";
+
+export const AETHERIS_CHAIN = {
+  id: 11155111,
+  name: "Ethereum Sepolia",
+  shortName: "Sepolia",
+  explorer: "https://sepolia.etherscan.io",
+} as const;
 
 export const CONTRACTS = {
   AETRToken: {
@@ -33,12 +41,13 @@ export const CONTRACTS = {
   Vault: {
     address:
       "0xF7DaA3b8DBFc3E923ce9645BA803d5Cff86d38C6" as `0x${string}`,
-    abi: VaultABI.abi,
+    abi: VaultABI,
   },
 
   ProtocolFeeRouter: {
     address:
       "0x14830D7463C51c1EDf78f42bCC93D7017c306211" as `0x${string}`,
+    abi: ProtocolFeeRouterABI,
   },
 
   Staking: {
@@ -46,4 +55,14 @@ export const CONTRACTS = {
       "0x07f1752864abcFA1AE67742dF61E3ADD368f22b8" as `0x${string}`,
     abi: StakingABI,
   },
+} as const;
+
+export const EXPLORER_URLS = {
+  AETRToken: `${AETHERIS_CHAIN.explorer}/address/${CONTRACTS.AETRToken.address}`,
+  AUSDStablecoin: `${AETHERIS_CHAIN.explorer}/address/${CONTRACTS.AUSDStablecoin.address}`,
+  PriceOracle: `${AETHERIS_CHAIN.explorer}/address/${CONTRACTS.PriceOracle.address}`,
+  Treasury: `${AETHERIS_CHAIN.explorer}/address/${CONTRACTS.Treasury.address}`,
+  Vault: `${AETHERIS_CHAIN.explorer}/address/${CONTRACTS.Vault.address}`,
+  ProtocolFeeRouter: `${AETHERIS_CHAIN.explorer}/address/${CONTRACTS.ProtocolFeeRouter.address}`,
+  Staking: `${AETHERIS_CHAIN.explorer}/address/${CONTRACTS.Staking.address}`,
 } as const;
