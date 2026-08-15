@@ -5,6 +5,7 @@ import AETRTokenomics from "../components/AETRTokenomics";
 import StakingPanel from "../components/StakingPanel";
 import RiskPanel from "../components/RiskPanel";
 import OraclePanel from "../components/OraclePanel";
+import FeeRouterPanel from "../components/FeeRouterPanel";
 
 export default function Dashboard() {
   return (
@@ -84,6 +85,8 @@ export default function Dashboard() {
         <RiskPanel />
 
         <OraclePanel />
+
+        <FeeRouterPanel />
 
         {/* Protocol Modules */}
 
