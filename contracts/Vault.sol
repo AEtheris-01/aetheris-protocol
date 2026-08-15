@@ -1,18 +1,35 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 
-interface IAUSDStablecoin {
+interface IAUSDStablecoinV2 {
     function mint(address to, uint256 amount) external;
     function burn(address from, uint256 amount) external;
 }
 
-interface IPriceOracle {
+interface IPriceOracleV2 {
     function getETHPrice() external view returns (uint256);
 }
 
-contract Vault is Ownable {
+contract Vault is
+    Ownable2Step,
+    Pausable,
+    ReentrancyGuard
+{
+    using Address for address payable;
+
+    // --------------------------------------------------
+    // CONSTANTS
+    // --------------------------------------------------
+
+    uint256 public constant BPS = 10_000;
+
+    // Maximum borrowing = 66% of collateral value
+    uint256 public constant MAX_LTV_BPS = 6_600;
 
     // --------------------------------------------------
     // USER POSITIONS
@@ -21,76 +38,38 @@ contract Vault is Ownable {
     mapping(address => uint256) public ethCollateral;
     mapping(address => uint256) public ausdDebt;
 
+    uint256 public totalETHCollateral;
+    uint256 public totalAUSDDebt;
+
     // --------------------------------------------------
     // CONTRACT REFERENCES
     // --------------------------------------------------
 
-    IAUSDStablecoin public ausd;
-    IPriceOracle public priceOracle;
-
-    // --------------------------------------------------
-    // RISK PARAMETERS
-    // --------------------------------------------------
-
-    // Maximum LTV = 66%
-    uint256 public constant MAX_LTV_BPS = 6600;
-    uint256 public constant BPS = 10000;
-
-    // --------------------------------------------------
-    // MINTING FEE
-    // --------------------------------------------------
-
-    // Minimum = 0.50%
-    uint256 public constant MIN_MINT_FEE_BPS = 50;
-
-    // Maximum = 1.00%
-    uint256 public constant MAX_MINT_FEE_BPS = 100;
-
-    // Initial fee = 0.50%
-    uint256 public mintFeeBps = 50;
-
-    // AUSD fee recipient
-    address public feeTreasury;
+    IAUSDStablecoinV2 public immutable ausd;
+    IPriceOracleV2 public immutable priceOracle;
 
     // --------------------------------------------------
     // EVENTS
     // --------------------------------------------------
 
-    event Deposit(
+    event ETHDeposited(
         address indexed user,
         uint256 amount
     );
 
-    event Withdraw(
+    event ETHWithdrawn(
         address indexed user,
         uint256 amount
     );
 
-    event Borrow(
+    event AUSDBorrowed(
         address indexed user,
         uint256 amount
     );
 
-    event Repay(
+    event AUSDRepaid(
         address indexed user,
         uint256 amount
-    );
-
-    event MintFeeUpdated(
-        uint256 oldFeeBps,
-        uint256 newFeeBps
-    );
-
-    event FeeTreasuryUpdated(
-        address indexed oldTreasury,
-        address indexed newTreasury
-    );
-
-    event MintFeeCollected(
-        address indexed user,
-        address indexed treasury,
-        uint256 principal,
-        uint256 fee
     );
 
     // --------------------------------------------------
@@ -101,87 +80,60 @@ contract Vault is Ownable {
         address initialOwner,
         address ausdAddress,
         address oracleAddress
-    ) Ownable(initialOwner) {
-        ausd = IAUSDStablecoin(ausdAddress);
-        priceOracle = IPriceOracle(oracleAddress);
-    }
-
-    // --------------------------------------------------
-    // MINT FEE ADMINISTRATION
-    // --------------------------------------------------
-
-    function setMintFeeBps(
-        uint256 newFeeBps
-    ) external onlyOwner {
+    )
+        Ownable(initialOwner)
+    {
+        require(
+            initialOwner != address(0),
+            "Invalid owner"
+        );
 
         require(
-            newFeeBps >= MIN_MINT_FEE_BPS &&
-            newFeeBps <= MAX_MINT_FEE_BPS,
-            "Fee outside allowed range"
+            ausdAddress != address(0),
+            "Invalid AUSD"
         );
-
-        uint256 oldFeeBps = mintFeeBps;
-
-        mintFeeBps = newFeeBps;
-
-        emit MintFeeUpdated(
-            oldFeeBps,
-            newFeeBps
-        );
-    }
-
-    function setFeeTreasury(
-        address newTreasury
-    ) external onlyOwner {
 
         require(
-            newTreasury != address(0),
-            "Invalid treasury"
+            oracleAddress != address(0),
+            "Invalid oracle"
         );
 
-        address oldTreasury = feeTreasury;
+        ausd =
+            IAUSDStablecoinV2(ausdAddress);
 
-        feeTreasury = newTreasury;
-
-        emit FeeTreasuryUpdated(
-            oldTreasury,
-            newTreasury
-        );
+        priceOracle =
+            IPriceOracleV2(oracleAddress);
     }
 
     // --------------------------------------------------
     // DEPOSIT ETH
     // --------------------------------------------------
 
-    function depositETH() external payable {
-
+    function depositETH()
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+    {
         require(
             msg.value > 0,
             "Zero deposit"
         );
 
-        ethCollateral[msg.sender] += msg.value;
+        ethCollateral[msg.sender] +=
+            msg.value;
 
-        emit Deposit(
+        totalETHCollateral +=
+            msg.value;
+
+        emit ETHDeposited(
             msg.sender,
             msg.value
         );
     }
 
     // --------------------------------------------------
-    // GET ETH PRICE
-    // --------------------------------------------------
-
-    function getETHPrice()
-        public
-        view
-        returns (uint256)
-    {
-        return priceOracle.getETHPrice();
-    }
-
-    // --------------------------------------------------
-    // GET COLLATERAL VALUE
+    // COLLATERAL VALUE
     // --------------------------------------------------
 
     function collateralValue(
@@ -194,14 +146,9 @@ contract Vault is Ownable {
         uint256 ethPrice =
             priceOracle.getETHPrice();
 
-        require(
-            ethPrice > 0,
-            "ETH price not set"
-        );
-
-        // ETH = 18 decimals
-        // Price = 8 decimals
-        // Result = USD with 18 decimals
+        // Oracle prices use 8 decimals.
+        // ETH collateral uses 18 decimals.
+        // Result is USD/AUSD value with 18 decimals.
 
         return
             (ethCollateral[user] * ethPrice)
@@ -209,7 +156,24 @@ contract Vault is Ownable {
     }
 
     // --------------------------------------------------
-    // MAXIMUM AUSD BORROWING CAPACITY
+    // MAXIMUM DEBT
+    // --------------------------------------------------
+
+    function maximumDebt(
+        address user
+    )
+        public
+        view
+        returns (uint256)
+    {
+        return
+            (collateralValue(user) *
+                MAX_LTV_BPS)
+            / BPS;
+    }
+
+    // --------------------------------------------------
+    // AVAILABLE BORROW
     // --------------------------------------------------
 
     function maxBorrow(
@@ -219,21 +183,17 @@ contract Vault is Ownable {
         view
         returns (uint256)
     {
-        uint256 collateralUSD =
-            collateralValue(user);
+        uint256 maxDebt =
+            maximumDebt(user);
 
-        uint256 maximumDebt =
-            (collateralUSD * MAX_LTV_BPS)
-            / BPS;
+        uint256 currentDebt =
+            ausdDebt[user];
 
-        if (
-            maximumDebt <= ausdDebt[user]
-        ) {
+        if (currentDebt >= maxDebt) {
             return 0;
         }
 
-        return
-            maximumDebt - ausdDebt[user];
+        return maxDebt - currentDebt;
     }
 
     // --------------------------------------------------
@@ -244,55 +204,32 @@ contract Vault is Ownable {
         uint256 amount
     )
         external
+        whenNotPaused
+        nonReentrant
     {
         require(
             amount > 0,
             "Zero borrow"
         );
 
-        uint256 available =
-            maxBorrow(msg.sender);
-
         require(
-            amount <= available,
+            amount <= maxBorrow(msg.sender),
             "Borrow exceeds collateral"
         );
 
-        require(
-            feeTreasury != address(0),
-            "Fee treasury not set"
-        );
-
-        // Calculate minting fee
-        uint256 fee =
-            (amount * mintFeeBps)
-            / BPS;
-
-        // User debt is ONLY the requested principal
+        // Effects before external interaction
         ausdDebt[msg.sender] += amount;
+        totalAUSDDebt += amount;
 
-        // User receives requested AUSD
+        // Vault must have AUSD MINTER_ROLE.
         ausd.mint(
             msg.sender,
             amount
         );
 
-        // Treasury receives the fee
-        ausd.mint(
-            feeTreasury,
-            fee
-        );
-
-        emit Borrow(
+        emit AUSDBorrowed(
             msg.sender,
             amount
-        );
-
-        emit MintFeeCollected(
-            msg.sender,
-            feeTreasury,
-            amount,
-            fee
         );
     }
 
@@ -304,26 +241,36 @@ contract Vault is Ownable {
         uint256 amount
     )
         external
+        whenNotPaused
+        nonReentrant
     {
         require(
             amount > 0,
             "Zero repayment"
         );
 
+        uint256 debt =
+            ausdDebt[msg.sender];
+
         require(
-            amount <= ausdDebt[msg.sender],
+            amount <= debt,
             "Repay exceeds debt"
         );
 
-        // Burn ONLY the principal debt
+        // Effects first. A revert from burn rolls
+        // the entire transaction back atomically.
+        ausdDebt[msg.sender] =
+            debt - amount;
+
+        totalAUSDDebt -= amount;
+
+        // Vault must have AUSD BURNER_ROLE.
         ausd.burn(
             msg.sender,
             amount
         );
 
-        ausdDebt[msg.sender] -= amount;
-
-        emit Repay(
+        emit AUSDRepaid(
             msg.sender,
             amount
         );
@@ -337,75 +284,100 @@ contract Vault is Ownable {
         uint256 amount
     )
         external
+        whenNotPaused
+        nonReentrant
     {
         require(
             amount > 0,
             "Zero withdrawal"
         );
 
+        uint256 currentCollateral =
+            ethCollateral[msg.sender];
+
         require(
-            ethCollateral[msg.sender] >= amount,
+            amount <= currentCollateral,
             "Insufficient collateral"
         );
 
         uint256 remainingCollateral =
-            ethCollateral[msg.sender] - amount;
+            currentCollateral - amount;
 
-        uint256 ethPrice =
-            priceOracle.getETHPrice();
+        uint256 debt =
+            ausdDebt[msg.sender];
 
-        require(
-            ethPrice > 0,
-            "ETH price not set"
-        );
+        if (debt > 0) {
+            uint256 ethPrice =
+                priceOracle.getETHPrice();
 
-        uint256 remainingValue =
-            (remainingCollateral * ethPrice)
-            / 1e8;
+            uint256 remainingValue =
+                (remainingCollateral *
+                    ethPrice)
+                / 1e8;
 
-        uint256 requiredCollateral =
-            (ausdDebt[msg.sender] * BPS)
-            / MAX_LTV_BPS;
+            uint256 allowedDebt =
+                (remainingValue *
+                    MAX_LTV_BPS)
+                / BPS;
 
-        require(
-            remainingValue >= requiredCollateral,
-            "Withdrawal would undercollateralize"
-        );
+            require(
+                debt <= allowedDebt,
+                "Withdrawal unsafe"
+            );
+        }
 
+        // Effects before interaction
         ethCollateral[msg.sender] =
             remainingCollateral;
 
-        payable(msg.sender).transfer(
+        totalETHCollateral -= amount;
+
+        payable(msg.sender).sendValue(
             amount
         );
 
-        emit Withdraw(
+        emit ETHWithdrawn(
             msg.sender,
             amount
         );
     }
 
     // --------------------------------------------------
-    // VIEW FUNCTIONS
+    // HEALTH
     // --------------------------------------------------
 
-    function collateralOf(
+    function isHealthy(
         address user
     )
         external
         view
-        returns (uint256)
+        returns (bool)
     {
-        return ethCollateral[user];
+        uint256 debt =
+            ausdDebt[user];
+
+        if (debt == 0) {
+            return true;
+        }
+
+        return debt <= maximumDebt(user);
     }
 
-    function debtOf(
-        address user
-    )
+    // --------------------------------------------------
+    // EMERGENCY CONTROLS
+    // --------------------------------------------------
+
+    function pause()
         external
-        view
-        returns (uint256)
+        onlyOwner
     {
-        return ausdDebt[user];
+        _pause();
+    }
+
+    function unpause()
+        external
+        onlyOwner
+    {
+        _unpause();
     }
 }
