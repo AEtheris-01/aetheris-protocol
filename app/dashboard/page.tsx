@@ -7,6 +7,7 @@ import RiskPanel from "../components/RiskPanel";
 import OraclePanel from "../components/OraclePanel";
 import FeeRouterPanel from "../components/FeeRouterPanel";
 import TreasuryPanel from "../components/TreasuryPanel";
+import AUSDPanel from "../components/AUSDPanel";
 
 export default function Dashboard() {
   return (
@@ -90,6 +91,8 @@ export default function Dashboard() {
         <FeeRouterPanel />
 
         <TreasuryPanel />
+
+        <AUSDPanel />
 
         {/* Protocol Modules */}
 
