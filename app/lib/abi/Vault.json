@@ -1,410 +1,545 @@
-{
-  "_format": "hh3-artifact-1",
-  "contractName": "Vault",
-  "sourceName": "contracts/Vault.sol",
-  "abi": [
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "initialOwner",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "ausdAddress",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "oracleAddress",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "nonpayable",
-      "type": "constructor"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
-        }
-      ],
-      "name": "OwnableInvalidOwner",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "account",
-          "type": "address"
-        }
-      ],
-      "name": "OwnableUnauthorizedAccount",
-      "type": "error"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "user",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "Borrow",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "user",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "Deposit",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "previousOwner",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "newOwner",
-          "type": "address"
-        }
-      ],
-      "name": "OwnershipTransferred",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "user",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "Repay",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "user",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "Withdraw",
-      "type": "event"
-    },
-    {
-      "inputs": [],
-      "name": "BPS",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "MAX_LTV_BPS",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "ausd",
-      "outputs": [
-        {
-          "internalType": "contract IAUSDStablecoin",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "name": "ausdDebt",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "borrowAUSD",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "user",
-          "type": "address"
-        }
-      ],
-      "name": "collateralOf",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "user",
-          "type": "address"
-        }
-      ],
-      "name": "collateralValue",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "user",
-          "type": "address"
-        }
-      ],
-      "name": "debtOf",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "depositETH",
-      "outputs": [],
-      "stateMutability": "payable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "name": "ethCollateral",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getETHPrice",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "user",
-          "type": "address"
-        }
-      ],
-      "name": "maxBorrow",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "owner",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "priceOracle",
-      "outputs": [
-        {
-          "internalType": "contract IPriceOracle",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "renounceOwnership",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "repayAUSD",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "newOwner",
-          "type": "address"
-        }
-      ],
-      "name": "transferOwnership",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "withdrawETH",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    }
-  ],
-  "bytecode": "0x608060405234801561000f575f5ffd5b50604051610e29380380610e2983398101604081905261002e91610102565b826001600160a01b03811661005c57604051631e4fbdf760e01b81525f600482015260240160405180910390fd5b61006581610098565b50600380546001600160a01b039384166001600160a01b0319918216179091556004805492909316911617905550610142565b5f80546001600160a01b038381166001600160a01b0319831681178455604051919092169283917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e09190a35050565b80516001600160a01b03811681146100fd575f5ffd5b919050565b5f5f5f60608486031215610114575f5ffd5b61011d846100e7565b925061012b602085016100e7565b9150610139604085016100e7565b90509250925092565b610cda8061014f5f395ff3fe608060405260043610610105575f3560e01c80638da5cb5b11610092578063c23af83211610062578063c23af832146102c9578063d283e75f146102e8578063f14210a61461031c578063f2fde38b1461033b578063f6326fb31461035a575f5ffd5b80638da5cb5b1461025b5780638e5dd6bd1461027757806397a9d45714610296578063a607a8d9146102b5575f5ffd5b80632630c12f116100d85780632630c12f146101a55780636b8564e9146101dc578063715018a6146101fd5780637544aa44146102115780637d0d049014610230575f5ffd5b80631aefb107146101095780631bfaae1d146101505780631c8c16fb14610165578063249d39e914610190575b5f5ffd5b348015610114575f5ffd5b5061013d610123366004610bda565b6001600160a01b03165f9081526001602052604090205490565b6040519081526020015b60405180910390f35b34801561015b575f5ffd5b5061013d6119c881565b348015610170575f5ffd5b5061013d61017f366004610bda565b60016020525f908152604090205481565b34801561019b575f5ffd5b5061013d61271081565b3480156101b0575f5ffd5b506004546101c4906001600160a01b031681565b6040516001600160a01b039091168152602001610147565b3480156101e7575f5ffd5b506101fb6101f6366004610c00565b610362565b005b348015610208575f5ffd5b506101fb6104bb565b34801561021c575f5ffd5b5061013d61022b366004610bda565b6104ce565b34801561023b575f5ffd5b5061013d61024a366004610bda565b60026020525f908152604090205481565b348015610266575f5ffd5b505f546001600160a01b03166101c4565b348015610282575f5ffd5b506101fb610291366004610c00565b6105b7565b3480156102a1575f5ffd5b5061013d6102b0366004610bda565b610705565b3480156102c0575f5ffd5b5061013d610780565b3480156102d4575f5ffd5b506003546101c4906001600160a01b031681565b3480156102f3575f5ffd5b5061013d610302366004610bda565b6001600160a01b03165f9081526002602052604090205490565b348015610327575f5ffd5b506101fb610336366004610c00565b6107fa565b348015610346575f5ffd5b506101fb610355366004610bda565b610a8a565b6101fb610ac7565b5f81116103a45760405162461bcd60e51b815260206004820152600b60248201526a5a65726f20626f72726f7760a81b60448201526064015b60405180910390fd5b5f6103ae33610705565b9050808211156104005760405162461bcd60e51b815260206004820152601960248201527f426f72726f77206578636565647320636f6c6c61746572616c00000000000000604482015260640161039b565b335f908152600260205260408120805484929061041e908490610c2b565b90915550506003546040516340c10f1960e01b8152336004820152602481018490526001600160a01b03909116906340c10f19906044015f604051808303815f87803b15801561046c575f5ffd5b505af115801561047e573d5f5f3e3d5ffd5b50506040518481523392507fcbc04eca7e9da35cb1393a6135a199ca52e450d5e9251cbd99f7847d33a36750915060200160405180910390a25050565b6104c3610b5f565b6104cc5f610b8b565b565b600480546040805163a607a8d960e01b815290515f9384936001600160a01b03169263a607a8d992818301926020928290030181865afa158015610514573d5f5f3e3d5ffd5b505050506040513d601f19601f820116820180604052508101906105389190610c44565b90505f811161057d5760405162461bcd60e51b8152602060048201526011602482015270115512081c1c9a58d9481b9bdd081cd95d607a1b604482015260640161039b565b6001600160a01b0383165f908152600160205260409020546305f5e100906105a6908390610c5b565b6105b09190610c72565b9392505050565b5f81116105f75760405162461bcd60e51b815260206004820152600e60248201526d16995c9bc81c995c185e5b595b9d60921b604482015260640161039b565b335f9081526002602052604090205481111561064a5760405162461bcd60e51b815260206004820152601260248201527114995c185e48195e18d959591cc81919589d60721b604482015260640161039b565b600354604051632770a7eb60e21b8152336004820152602481018390526001600160a01b0390911690639dc29fac906044015f604051808303815f87803b158015610693575f5ffd5b505af11580156106a5573d5f5f3e3d5ffd5b5050335f90815260026020526040812080548594509092506106c8908490610c91565b909155505060405181815233907f5c16de4f8b59bd9caf0f49a545f25819a895ed223294290b408242e72a5942319060200160405180910390a250565b5f5f610710836104ce565b90505f6127106107226119c884610c5b565b61072c9190610c72565b6001600160a01b0385165f90815260026020526040902054909150811161075657505f9392505050565b6001600160a01b0384165f908152600260205260409020546107789082610c91565b949350505050565b5f60045f9054906101000a90046001600160a01b03166001600160a01b031663a607a8d96040518163ffffffff1660e01b8152600401602060405180830381865afa1580156107d1573d5f5f3e3d5ffd5b505050506040513d601f19601f820116820180604052508101906107f59190610c44565b905090565b5f811161083b5760405162461bcd60e51b815260206004820152600f60248201526e16995c9bc81dda5d1a191c985dd85b608a1b604482015260640161039b565b335f908152600160205260409020548111156108995760405162461bcd60e51b815260206004820152601760248201527f496e73756666696369656e7420636f6c6c61746572616c000000000000000000604482015260640161039b565b335f908152600160205260408120546108b3908390610c91565b90505f60045f9054906101000a90046001600160a01b03166001600160a01b031663a607a8d96040518163ffffffff1660e01b8152600401602060405180830381865afa158015610906573d5f5f3e3d5ffd5b505050506040513d601f19601f8201168201806040525081019061092a9190610c44565b90505f811161096f5760405162461bcd60e51b8152602060048201526011602482015270115512081c1c9a58d9481b9bdd081cd95d607a1b604482015260640161039b565b5f6305f5e10061097f8385610c5b565b6109899190610c72565b335f90815260026020526040812054919250906119c8906109ad9061271090610c5b565b6109b79190610c72565b905080821015610a155760405162461bcd60e51b815260206004820152602360248201527f5769746864726177616c20776f756c6420756e646572636f6c6c61746572616c604482015262697a6560e81b606482015260840161039b565b335f818152600160205260408082208790555187156108fc0291889190818181858888f19350505050158015610a4d573d5f5f3e3d5ffd5b5060405185815233907f884edad9ce6fa2440d8a54cc123490eb96d2768479d49ff9c7366125a94243649060200160405180910390a25050505050565b610a92610b5f565b6001600160a01b038116610abb57604051631e4fbdf760e01b81525f600482015260240161039b565b610ac481610b8b565b50565b5f3411610b055760405162461bcd60e51b815260206004820152600c60248201526b16995c9bc819195c1bdcda5d60a21b604482015260640161039b565b335f9081526001602052604081208054349290610b23908490610c2b565b909155505060405134815233907fe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c9060200160405180910390a2565b5f546001600160a01b031633146104cc5760405163118cdaa760e01b815233600482015260240161039b565b5f80546001600160a01b038381166001600160a01b0319831681178455604051919092169283917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e09190a35050565b5f60208284031215610bea575f5ffd5b81356001600160a01b03811681146105b0575f5ffd5b5f60208284031215610c10575f5ffd5b5035919050565b634e487b7160e01b5f52601160045260245ffd5b80820180821115610c3e57610c3e610c17565b92915050565b5f60208284031215610c54575f5ffd5b5051919050565b8082028115828204841417610c3e57610c3e610c17565b5f82610c8c57634e487b7160e01b5f52601260045260245ffd5b500490565b81810381811115610c3e57610c3e610c1756fea2646970667358221220a83188bc4f22ea0b1ea1931b55bfcab28da1a4fe6772376245f882c2ac0220c764736f6c634300081c0033",
-  "deployedBytecode": "0x608060405260043610610105575f3560e01c80638da5cb5b11610092578063c23af83211610062578063c23af832146102c9578063d283e75f146102e8578063f14210a61461031c578063f2fde38b1461033b578063f6326fb31461035a575f5ffd5b80638da5cb5b1461025b5780638e5dd6bd1461027757806397a9d45714610296578063a607a8d9146102b5575f5ffd5b80632630c12f116100d85780632630c12f146101a55780636b8564e9146101dc578063715018a6146101fd5780637544aa44146102115780637d0d049014610230575f5ffd5b80631aefb107146101095780631bfaae1d146101505780631c8c16fb14610165578063249d39e914610190575b5f5ffd5b348015610114575f5ffd5b5061013d610123366004610bda565b6001600160a01b03165f9081526001602052604090205490565b6040519081526020015b60405180910390f35b34801561015b575f5ffd5b5061013d6119c881565b348015610170575f5ffd5b5061013d61017f366004610bda565b60016020525f908152604090205481565b34801561019b575f5ffd5b5061013d61271081565b3480156101b0575f5ffd5b506004546101c4906001600160a01b031681565b6040516001600160a01b039091168152602001610147565b3480156101e7575f5ffd5b506101fb6101f6366004610c00565b610362565b005b348015610208575f5ffd5b506101fb6104bb565b34801561021c575f5ffd5b5061013d61022b366004610bda565b6104ce565b34801561023b575f5ffd5b5061013d61024a366004610bda565b60026020525f908152604090205481565b348015610266575f5ffd5b505f546001600160a01b03166101c4565b348015610282575f5ffd5b506101fb610291366004610c00565b6105b7565b3480156102a1575f5ffd5b5061013d6102b0366004610bda565b610705565b3480156102c0575f5ffd5b5061013d610780565b3480156102d4575f5ffd5b506003546101c4906001600160a01b031681565b3480156102f3575f5ffd5b5061013d610302366004610bda565b6001600160a01b03165f9081526002602052604090205490565b348015610327575f5ffd5b506101fb610336366004610c00565b6107fa565b348015610346575f5ffd5b506101fb610355366004610bda565b610a8a565b6101fb610ac7565b5f81116103a45760405162461bcd60e51b815260206004820152600b60248201526a5a65726f20626f72726f7760a81b60448201526064015b60405180910390fd5b5f6103ae33610705565b9050808211156104005760405162461bcd60e51b815260206004820152601960248201527f426f72726f77206578636565647320636f6c6c61746572616c00000000000000604482015260640161039b565b335f908152600260205260408120805484929061041e908490610c2b565b90915550506003546040516340c10f1960e01b8152336004820152602481018490526001600160a01b03909116906340c10f19906044015f604051808303815f87803b15801561046c575f5ffd5b505af115801561047e573d5f5f3e3d5ffd5b50506040518481523392507fcbc04eca7e9da35cb1393a6135a199ca52e450d5e9251cbd99f7847d33a36750915060200160405180910390a25050565b6104c3610b5f565b6104cc5f610b8b565b565b600480546040805163a607a8d960e01b815290515f9384936001600160a01b03169263a607a8d992818301926020928290030181865afa158015610514573d5f5f3e3d5ffd5b505050506040513d601f19601f820116820180604052508101906105389190610c44565b90505f811161057d5760405162461bcd60e51b8152602060048201526011602482015270115512081c1c9a58d9481b9bdd081cd95d607a1b604482015260640161039b565b6001600160a01b0383165f908152600160205260409020546305f5e100906105a6908390610c5b565b6105b09190610c72565b9392505050565b5f81116105f75760405162461bcd60e51b815260206004820152600e60248201526d16995c9bc81c995c185e5b595b9d60921b604482015260640161039b565b335f9081526002602052604090205481111561064a5760405162461bcd60e51b815260206004820152601260248201527114995c185e48195e18d959591cc81919589d60721b604482015260640161039b565b600354604051632770a7eb60e21b8152336004820152602481018390526001600160a01b0390911690639dc29fac906044015f604051808303815f87803b158015610693575f5ffd5b505af11580156106a5573d5f5f3e3d5ffd5b5050335f90815260026020526040812080548594509092506106c8908490610c91565b909155505060405181815233907f5c16de4f8b59bd9caf0f49a545f25819a895ed223294290b408242e72a5942319060200160405180910390a250565b5f5f610710836104ce565b90505f6127106107226119c884610c5b565b61072c9190610c72565b6001600160a01b0385165f90815260026020526040902054909150811161075657505f9392505050565b6001600160a01b0384165f908152600260205260409020546107789082610c91565b949350505050565b5f60045f9054906101000a90046001600160a01b03166001600160a01b031663a607a8d96040518163ffffffff1660e01b8152600401602060405180830381865afa1580156107d1573d5f5f3e3d5ffd5b505050506040513d601f19601f820116820180604052508101906107f59190610c44565b905090565b5f811161083b5760405162461bcd60e51b815260206004820152600f60248201526e16995c9bc81dda5d1a191c985dd85b608a1b604482015260640161039b565b335f908152600160205260409020548111156108995760405162461bcd60e51b815260206004820152601760248201527f496e73756666696369656e7420636f6c6c61746572616c000000000000000000604482015260640161039b565b335f908152600160205260408120546108b3908390610c91565b90505f60045f9054906101000a90046001600160a01b03166001600160a01b031663a607a8d96040518163ffffffff1660e01b8152600401602060405180830381865afa158015610906573d5f5f3e3d5ffd5b505050506040513d601f19601f8201168201806040525081019061092a9190610c44565b90505f811161096f5760405162461bcd60e51b8152602060048201526011602482015270115512081c1c9a58d9481b9bdd081cd95d607a1b604482015260640161039b565b5f6305f5e10061097f8385610c5b565b6109899190610c72565b335f90815260026020526040812054919250906119c8906109ad9061271090610c5b565b6109b79190610c72565b905080821015610a155760405162461bcd60e51b815260206004820152602360248201527f5769746864726177616c20776f756c6420756e646572636f6c6c61746572616c604482015262697a6560e81b606482015260840161039b565b335f818152600160205260408082208790555187156108fc0291889190818181858888f19350505050158015610a4d573d5f5f3e3d5ffd5b5060405185815233907f884edad9ce6fa2440d8a54cc123490eb96d2768479d49ff9c7366125a94243649060200160405180910390a25050505050565b610a92610b5f565b6001600160a01b038116610abb57604051631e4fbdf760e01b81525f600482015260240161039b565b610ac481610b8b565b50565b5f3411610b055760405162461bcd60e51b815260206004820152600c60248201526b16995c9bc819195c1bdcda5d60a21b604482015260640161039b565b335f9081526001602052604081208054349290610b23908490610c2b565b909155505060405134815233907fe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c9060200160405180910390a2565b5f546001600160a01b031633146104cc5760405163118cdaa760e01b815233600482015260240161039b565b5f80546001600160a01b038381166001600160a01b0319831681178455604051919092169283917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e09190a35050565b5f60208284031215610bea575f5ffd5b81356001600160a01b03811681146105b0575f5ffd5b5f60208284031215610c10575f5ffd5b5035919050565b634e487b7160e01b5f52601160045260245ffd5b80820180821115610c3e57610c3e610c17565b92915050565b5f60208284031215610c54575f5ffd5b5051919050565b8082028115828204841417610c3e57610c3e610c17565b5f82610c8c57634e487b7160e01b5f52601260045260245ffd5b500490565b81810381811115610c3e57610c3e610c1756fea2646970667358221220a83188bc4f22ea0b1ea1931b55bfcab28da1a4fe6772376245f882c2ac0220c764736f6c634300081c0033",
-  "linkReferences": {},
-  "deployedLinkReferences": {},
-  "immutableReferences": {},
-  "inputSourceName": "project/contracts/Vault.sol",
-  "buildInfoId": "solc-0_8_28-433bd37a0215c8cacf4723d4ff059cf85c2c27e4"
-}
+[
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "initialOwner",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "ausdAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "oracleAddress",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnableInvalidOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "OwnableUnauthorizedAccount",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "Borrow",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "Deposit",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "oldTreasury",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newTreasury",
+        "type": "address"
+      }
+    ],
+    "name": "FeeTreasuryUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "treasury",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "principal",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "fee",
+        "type": "uint256"
+      }
+    ],
+    "name": "MintFeeCollected",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "oldFeeBps",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newFeeBps",
+        "type": "uint256"
+      }
+    ],
+    "name": "MintFeeUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "previousOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "Repay",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "Withdraw",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "BPS",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "MAX_LTV_BPS",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "MAX_MINT_FEE_BPS",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "MIN_MINT_FEE_BPS",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "ausd",
+    "outputs": [
+      {
+        "internalType": "contract IAUSDStablecoin",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "ausdDebt",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "borrowAUSD",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      }
+    ],
+    "name": "collateralOf",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      }
+    ],
+    "name": "collateralValue",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      }
+    ],
+    "name": "debtOf",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "depositETH",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "ethCollateral",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "feeTreasury",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getETHPrice",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      }
+    ],
+    "name": "maxBorrow",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "mintFeeBps",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "priceOracle",
+    "outputs": [
+      {
+        "internalType": "contract IPriceOracle",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "renounceOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "repayAUSD",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newTreasury",
+        "type": "address"
+      }
+    ],
+    "name": "setFeeTreasury",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "newFeeBps",
+        "type": "uint256"
+      }
+    ],
+    "name": "setMintFeeBps",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "withdrawETH",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

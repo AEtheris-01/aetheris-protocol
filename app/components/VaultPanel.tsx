@@ -18,7 +18,7 @@ const [ausdAmount, setAusdAmount] = useState("");
   } = useReadContract({
     address: CONTRACTS.Vault.address,
     abi: CONTRACTS.Vault.abi,
-    functionName: "collateralOf",
+    functionName: "ethCollateral",
     args: address ? [address] : undefined,
     query: {
       enabled: !!address,
@@ -31,7 +31,7 @@ const [ausdAmount, setAusdAmount] = useState("");
   } = useReadContract({
     address: CONTRACTS.Vault.address,
     abi: CONTRACTS.Vault.abi,
-    functionName: "debtOf",
+    functionName: "ausddebt",
     args: address ? [address] : undefined,
     query: {
       enabled: !!address,

@@ -5,6 +5,21 @@
         "internalType": "address",
         "name": "initialOwner",
         "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "ausdAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "aetrAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "treasuryAddress",
+        "type": "address"
       }
     ],
     "stateMutability": "nonpayable",
@@ -43,23 +58,20 @@
     "type": "error"
   },
   {
-    "anonymous": false,
+    "inputs": [],
+    "name": "ReentrancyGuardReentrantCall",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "price",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "timestamp",
-        "type": "uint256"
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
       }
     ],
-    "name": "AETRPriceUpdated",
-    "type": "event"
+    "name": "SafeERC20FailedOperation",
+    "type": "error"
   },
   {
     "anonymous": false,
@@ -67,55 +79,55 @@
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "price",
+        "name": "aetrAmount",
         "type": "uint256"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "timestamp",
+        "name": "btcAmount",
         "type": "uint256"
       }
     ],
-    "name": "BTCPriceUpdated",
+    "name": "FeeAllocated",
     "type": "event"
   },
   {
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "price",
-        "type": "uint256"
+        "indexed": true,
+        "internalType": "address",
+        "name": "oldCollector",
+        "type": "address"
       },
       {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "timestamp",
-        "type": "uint256"
+        "indexed": true,
+        "internalType": "address",
+        "name": "newCollector",
+        "type": "address"
       }
     ],
-    "name": "ETHPriceUpdated",
+    "name": "FeeCollectorUpdated",
     "type": "event"
   },
   {
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "oldAge",
-        "type": "uint256"
+        "indexed": true,
+        "internalType": "address",
+        "name": "payer",
+        "type": "address"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "newAge",
+        "name": "ausdAmount",
         "type": "uint256"
       }
     ],
-    "name": "MaxPriceAgeUpdated",
+    "name": "FeeReceived",
     "type": "event"
   },
   {
@@ -175,17 +187,17 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "oldUpdater",
+        "name": "oldTreasury",
         "type": "address"
       },
       {
         "indexed": true,
         "internalType": "address",
-        "name": "newUpdater",
+        "name": "newTreasury",
         "type": "address"
       }
     ],
-    "name": "PriceUpdaterUpdated",
+    "name": "TreasuryUpdated",
     "type": "event"
   },
   {
@@ -203,7 +215,7 @@
   },
   {
     "inputs": [],
-    "name": "MAX_PRICE_AGE_LIMIT",
+    "name": "AETR_FEE_BPS",
     "outputs": [
       {
         "internalType": "uint256",
@@ -216,7 +228,33 @@
   },
   {
     "inputs": [],
-    "name": "MIN_PRICE_AGE",
+    "name": "BPS",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "BTC_FEE_BPS",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "TOTAL_FEE_BPS",
     "outputs": [
       {
         "internalType": "uint256",
@@ -236,12 +274,12 @@
   },
   {
     "inputs": [],
-    "name": "getAETRPrice",
+    "name": "aetr",
     "outputs": [
       {
-        "internalType": "uint256",
+        "internalType": "contract IERC20",
         "name": "",
-        "type": "uint256"
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -249,79 +287,12 @@
   },
   {
     "inputs": [],
-    "name": "getAETRPriceData",
+    "name": "ausd",
     "outputs": [
       {
-        "internalType": "uint256",
-        "name": "price",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "updatedAt",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getBTCPrice",
-    "outputs": [
-      {
-        "internalType": "uint256",
+        "internalType": "contract IERC20",
         "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getBTCPriceData",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "price",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "updatedAt",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getETHPrice",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getETHPriceData",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "price",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "updatedAt",
-        "type": "uint256"
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -331,29 +302,52 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "updatedAt",
+        "name": "amount",
         "type": "uint256"
       }
     ],
-    "name": "isFresh",
-    "outputs": [
+    "name": "burnAETRAllocation",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
       {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
+        "internalType": "uint256",
+        "name": "ausdAmount",
+        "type": "uint256"
       }
     ],
-    "stateMutability": "view",
+    "name": "calculateFee",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "totalFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "aetrAllocation",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "btcAllocation",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "pure",
     "type": "function"
   },
   {
     "inputs": [],
-    "name": "maxPriceAge",
+    "name": "feeCollector",
     "outputs": [
       {
-        "internalType": "uint256",
+        "internalType": "address",
         "name": "",
-        "type": "uint256"
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -406,16 +400,21 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "priceUpdater",
-    "outputs": [
+    "inputs": [
       {
         "internalType": "address",
-        "name": "",
+        "name": "payer",
         "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "ausdAmount",
+        "type": "uint256"
       }
     ],
-    "stateMutability": "view",
+    "name": "receiveFee",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -428,51 +427,12 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "price",
-        "type": "uint256"
+        "internalType": "address",
+        "name": "newCollector",
+        "type": "address"
       }
     ],
-    "name": "setAETRPrice",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "price",
-        "type": "uint256"
-      }
-    ],
-    "name": "setBTCPrice",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "price",
-        "type": "uint256"
-      }
-    ],
-    "name": "setETHPrice",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "newAge",
-        "type": "uint256"
-      }
-    ],
-    "name": "setMaxPriceAge",
+    "name": "setFeeCollector",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -481,11 +441,63 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "newUpdater",
+        "name": "newTreasury",
         "type": "address"
       }
     ],
-    "name": "setPriceUpdater",
+    "name": "setTreasury",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalAETRAllocation",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalBTCAllocation",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalFeesReceived",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "transferBTCAllocation",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -501,6 +513,19 @@
     "name": "transferOwnership",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "treasury",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {

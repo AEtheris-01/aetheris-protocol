@@ -12,6 +12,8 @@ export const config = createConfig({
   ],
 
   transports: {
-    [sepolia.id]: http(),
+    [sepolia.id]: http(
+      "https://ethereum-sepolia-rpc.publicnode.com"
+    ),
   },
 });
